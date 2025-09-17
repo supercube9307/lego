@@ -13,15 +13,6 @@ price_list = ""
 
 index = 0
 
-consumer_key = "EF0ADB3D01AF498D98F7713DAAC16F25"
-consumer_secret = "5149E716679E443CB57D807C59F019DE"
-#apartment
-token = "E76508D01D0944B993B72DC3BBA11AEF"
-token_secret = "392393EACFF24BA282A802D90227D0D5"
-#school
-#token = "0AF662912C5E488C81657A7E4CFF8D9E"
-#token_secret = "E7E6A1F9DDD44243856A706C44731001" 
-
 auth = OAuth1(consumer_key,
               consumer_secret,
               token,
