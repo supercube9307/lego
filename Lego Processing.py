@@ -22,7 +22,7 @@ for set_data in sets_list:
 # form oauth token
 with open("credentials_file.txt") as credentials_file:
     [consumer_key, consumer_secret, token_value,
-        token_secret] = credentials_file.readlines()
+        token_secret] = credentials_file.read().split("\n")
 
 
 auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
@@ -66,8 +66,7 @@ def sets_piece_lists():
         response = requests.get(set_url, auth=auth)
         json_load = json.loads(response.text)
 
-        set_message = set_id + ": " + \
-            json.loads(response.text)["meta"]["message"]
+        set_message = set_id + ": " + json_load["meta"]["message"]
         print(set_message)
 
         pieces_list = []
@@ -80,9 +79,7 @@ def sets_piece_lists():
         pieces_list_by_set[set_id] = pieces_list
 
         with open("pieces_list_by_set.json", "w") as list_file:
-            list_file.write(json.dumps(pieces_list_by_set, indent=2))
-
-# sets_piece_lists()
+            list_file.write(json.dumps(pieces_list_by_set, indent=4))
 
 
 def filter_sets_by_piece_list(pieces_list_user):
@@ -149,6 +146,9 @@ while True:
 
     if user_request == "exit":
         break
+
+    if user_request == "piece list":
+        sets_piece_lists()
 
     else:
         piece_list = decompose_piece_list(user_request)
