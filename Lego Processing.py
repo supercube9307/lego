@@ -29,6 +29,7 @@ auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
 
 
 def decompose_piece_list(pieces_list):
+    # decompose user entry into list of pieces
     pieces_list = pieces_list.split(" ")
     index = 0
 
@@ -59,6 +60,7 @@ pieces_list_by_set = {}
 
 
 def sets_piece_lists():
+    # construct json file where piece lists per set are stored locally
     index = 0
     for set_data in sets_list:
         set_id = set_data[1]
