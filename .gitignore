@@ -2,3 +2,4 @@ Identified Lego Sets - List.csv
 Identified Lego Sets Prices.csv
 pieces_list_by_set.json
 credentials_file.txt
+.gitignore
