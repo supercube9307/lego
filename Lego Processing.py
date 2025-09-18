@@ -3,29 +3,39 @@ import json
 import requests
 from requests_oauthlib import OAuth1
 
-with open("Identified Lego Sets - List.csv", "r") as list_file:
-    list_text = list_file.read()
 
-# convert .csv to doubly nested list
-sets_list = list_text.split("\n")
-# remove headers
-sets_list.pop(0)
-# remove ghost entry at bottom
-sets_list.pop()
+def import_user_set_list():
+    # import user list of sets from .csv and extract set data
+    with open("Identified Lego Sets - List.csv", "r") as list_file:
+        list_text = list_file.read()
 
-index = 0
-for set_data in sets_list:
-    set_data = set_data.split(",")
-    sets_list[index] = set_data
-    index += 1
+    # convert .csv to single list by set
+    sets_list = list_text.split("\n")
+    # remove headers
+    set_headers = sets_list.pop(0).split(",")
+    # remove ghost entry at bottom
+    sets_list.pop()
 
-# form oauth token
-with open("credentials_file.txt") as credentials_file:
-    [consumer_key, consumer_secret, token_value,
-        token_secret] = credentials_file.read().split("\n")
+    # convert single nested list to doubly nested list
+    new_sets_list = []
+    new_set_data = {}
+
+    index = 0
+    for set_data in sets_list:
+        set_data = set_data.split(",")
+        sets_list[index] = set_data
+        index += 1
+
+    return (sets_list)
 
 
-auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
+def verify_oauth():
+    # form oauth token
+    with open("credentials_file.txt") as credentials_file:
+        [consumer_key, consumer_secret, token_value,
+            token_secret] = credentials_file.read().split("\n")
+    auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
+    return auth
 
 
 def decompose_piece_list(pieces_list):
@@ -36,7 +46,7 @@ def decompose_piece_list(pieces_list):
     for piece in pieces_list:
 
         # 4522 4006:11 2x58247:11 2x3849
-        piece_count = ""
+        piece_count = "1"
         piece_color = ""
 
         if "x" in piece:
@@ -53,6 +63,10 @@ def decompose_piece_list(pieces_list):
 
         pieces_list[index] = [piece_id, piece_color, piece_count]
         index += 1
+
+    if len(pieces_list[0]) == 1:
+        pieces_list = [pieces_list]
+
     return (pieces_list)
 
 
@@ -61,11 +75,13 @@ pieces_list_by_set = {}
 
 def sets_piece_lists():
     # construct json file where piece lists per set are stored locally
-    index = 0
+
+    sets_list = import_user_set_list()
+
     for set_data in sets_list:
         set_id = set_data[1]
         set_url = "https://api.bricklink.com/api/store/v1/items/set/" + set_id + "-1/subsets"
-        response = requests.get(set_url, auth=auth)
+        response = requests.get(set_url, auth=verify_oauth())
         json_load = json.loads(response.text)
 
         set_message = set_id + ": " + json_load["meta"]["message"]
@@ -85,16 +101,18 @@ def sets_piece_lists():
 
 
 def filter_sets_by_piece_list(pieces_list_user):
+
+    sets_list = import_user_set_list()
+
     with open("pieces_list_by_set.json", "r") as list_file:
         pieces_list_by_set = json.loads(list_file.read())
-    if len(pieces_list_user[0]) == 1:
-        pieces_list_user = [pieces_list_user]
 
     for set_data in sets_list:
         set_validity = 0
         set_id = set_data[1]
         pieces_list_json = pieces_list_by_set[set_id]
 
+        found_pieces_list = []
         for piece_user in pieces_list_user:
             piece_user_id = piece_user[0]
             piece_user_color = piece_user[1]
@@ -105,48 +123,29 @@ def filter_sets_by_piece_list(pieces_list_user):
                 piece_json_color = piece_json[1]
                 piece_json_quantity = piece_json[2]
 
-                if piece_json_id != piece_user_id:
-                    set_validity = 0
-                    print(piece_user_id + " NOT found in " + set_id)
-                    break
-                else:
-                    print(piece_user_id + " found in " + set_id)
+                # check validity of user piece vs. json list
+                piece_id_valid = piece_json_id == piece_user_id
+                piece_quantity_valid = piece_user_quantity <= piece_json_quantity
+                piece_color_valid = True
+                if piece_user_color != "":
+                    piece_color_valid = piece_user_color == piece_json_color
 
-                if piece_json_color != piece_user_color:
-                    set_validity = 0
-                    print(piece_user_id + " WRONG color " + set_id)
-                    break
-                else:
-                    print(piece_user_id + " with color " +
-                          piece_user_color + " found in " + set_id)
+                if piece_id_valid and piece_color_valid and piece_quantity_valid:
+                    found_pieces_list.append(piece_user)
 
-                if piece_json_quantity < piece_user_quantity:
-                    set_validity = 0
-                    print(piece_user_id + " TOO many " + set_id)
-                    break
-                else:
-                    print(piece_user_id + " with color " + piece_user_color +
-                          " with <= " + piece_user_quantity + " found in " + set_id)
-
-                set_validity = 1
-                # print(set_validity)
-                continue
-
-
-# if piece_user in pieces_list_json:
-# set_validity = 1
-# else:
-# set_validity = 0
-# break
-
-        if set_validity == 1:
-            print(set_id)
+        if found_pieces_list == pieces_list_user:
+            print("Found: " + set_id)
 
 
 while True:
+    print(
+        "Type a list of pieces as '[quantity]x[piece id]:[color]' for a list of sets that contain those pieces")
+    print("    example inputs:'1x4522:11', '4522 4006:11 2x58247:11 2x3849'")
+    print("Type 'piece list' to create local cache that contains pieces list for each set")
+    print("Type 'exit' or 'quit' to exit")
     user_request = input("Prompt: ").lower()
 
-    if user_request == "exit":
+    if user_request == "exit" or user_request == "quit":
         break
 
     if user_request == "piece list":
