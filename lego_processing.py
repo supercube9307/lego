@@ -28,18 +28,52 @@ def import_user_set_list():
 
     return (sets_list)
 
+def bricklink_prices():
+    # gather second hand prices from bricklink API
+
+    sets_list = import_user_set_list()
+
+    for set_item in sets_list:
+
+        set_id = set_item[1]         
+        set_url = "https://api.bricklink.com/api/store/v1/items/set/" + set_id + "-1/price?guide_type=sold&new_or_used=U"
+            
+        response = requests.get(set_url, auth=verify_oauth())
+        
+        qty_avg_price_index = response.text.find("qty_avg_price")
+        unit_quantity_index = response.text.find("unit_quantity")
+        qty_avg_price = response.text[qty_avg_price_index-1:unit_quantity_index-2]
+
+        colon_index = qty_avg_price.find(":")
+        qty_avg_price = qty_avg_price[colon_index+2:-1]
+
+        print(qty_avg_price)
+
+        set_data[-1] = "$" + qty_avg_price
+
+        set_data = ",".join(set_data)
+        print(set_data+"\n\n\n")
+        price_list = price_list + set_data +"\n"
+
+    with open("Identified Lego Sets Prices.csv", "w") as list_file_prices:
+        list_file_prices.write(price_list)
 
 def verify_oauth():
     # form oauth token
+
     with open("credentials_file.txt") as credentials_file:
         [consumer_key, consumer_secret, token_value,
             token_secret] = credentials_file.read().split("\n")
     auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
+
     return auth
 
 
 def decompose_piece_list(pieces_list):
-    # decompose user entry into list of pieces
+
+    # split user supplied list of pieces into list of pieces
+    # pieces are stored as a list of [piece id, piece color, piece quantity]
+
     pieces_list = pieces_list.split(" ")
     index = 0
 
@@ -70,10 +104,8 @@ def decompose_piece_list(pieces_list):
     return (pieces_list)
 
 
-pieces_list_by_set = {}
-
-
 def sets_piece_lists():
+
     # construct json file where piece lists per set are stored locally
 
     sets_list = import_user_set_list()
@@ -88,6 +120,8 @@ def sets_piece_lists():
         print(set_message)
 
         pieces_list = []
+        pieces_list_by_set = {}
+
         for piece in json_load["data"]:
             piece_id = piece["entries"][0]["item"]["no"]
             piece_color = str(piece["entries"][0]["color_id"])
@@ -101,6 +135,8 @@ def sets_piece_lists():
 
 
 def filter_sets_by_piece_list(pieces_list_user):
+
+    # compare user supplied list of pieces to sets list and report matches
 
     sets_list = import_user_set_list()
 
@@ -126,31 +162,40 @@ def filter_sets_by_piece_list(pieces_list_user):
                 # check validity of user piece vs. json list
                 piece_id_valid = piece_json_id == piece_user_id
                 piece_quantity_valid = piece_user_quantity <= piece_json_quantity
-                piece_color_valid = True
                 if piece_user_color != "":
                     piece_color_valid = piece_user_color == piece_json_color
+                else:
+                    piece_color_valid = True
 
                 if piece_id_valid and piece_color_valid and piece_quantity_valid:
                     found_pieces_list.append(piece_user)
 
         if found_pieces_list == pieces_list_user:
-            print("Found: " + set_id)
+            print("Found in set: " + set_id)
 
 
-while True:
+def main_loop():
+
     print(
         "Type a list of pieces as '[quantity]x[piece id]:[color]' for a list of sets that contain those pieces")
     print("    example inputs:'1x4522:11', '4522 4006:11 2x58247:11 2x3849'")
-    print("Type 'piece list' to create local cache that contains pieces list for each set")
+    print(
+        "Type 'piece list' to create local cache that contains pieces list for each set")
     print("Type 'exit' or 'quit' to exit")
-    user_request = input("Prompt: ").lower()
 
-    if user_request == "exit" or user_request == "quit":
-        break
+    while True:
 
-    if user_request == "piece list":
-        sets_piece_lists()
+        user_request = input("Prompt: ").lower()
 
-    else:
-        piece_list = decompose_piece_list(user_request)
-        filter_sets_by_piece_list(piece_list)
+        if user_request == "exit" or user_request == "quit":
+            break
+
+        if user_request == "piece list":
+            sets_piece_lists()
+
+        else:
+            piece_list = decompose_piece_list(user_request)
+            filter_sets_by_piece_list(piece_list)
+
+
+main_loop()
