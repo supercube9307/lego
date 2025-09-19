@@ -8,7 +8,7 @@ e.g: A-wing Starfighter - UCS,75275,New,$199.99 ,$198.9984
 
 
 
-credentials file contains for bricklink: consumer\_key, consumer\_secret, token\_value, token\_secret
+credentials file for bricklink contains: consumer\_key, consumer\_secret, token\_value, token\_secret
 each item on a new line with no formatting
 
 
