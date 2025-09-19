@@ -16,47 +16,32 @@ def import_user_set_list():
     # remove ghost entry at bottom
     sets_list.pop()
 
-    # convert single nested list to doubly nested list
+    # convert single nested list to list of dictionaries
     new_sets_list = []
-    new_set_data = {}
-
-    index = 0
+    sets_list_index = 0
     for set_data in sets_list:
-        set_data = set_data.split(",")
-        sets_list[index] = set_data
-        index += 1
+        new_set_data = {}
+        set_item_list = set_data.split(",")
+        set_item_index = 0
+        for set_item in set_item_list:
+            new_set_data[set_headers[set_item_index]] = set_item
+            set_item_index += 1
+        new_sets_list.append(new_set_data)
+        sets_list_index += 1
+    return (new_sets_list)
 
-    return (sets_list)
 
-def bricklink_prices():
-    # gather second hand prices from bricklink API
-
+def name_from_id(user_id):
+    # return set name from user supplied ID
+    #
     sets_list = import_user_set_list()
 
     for set_item in sets_list:
+        set_id = set_item["ID"]
+        if set_id == user_id:
+            return(set_item["Name"])
+            break
 
-        set_id = set_item[1]         
-        set_url = "https://api.bricklink.com/api/store/v1/items/set/" + set_id + "-1/price?guide_type=sold&new_or_used=U"
-            
-        response = requests.get(set_url, auth=verify_oauth())
-        
-        qty_avg_price_index = response.text.find("qty_avg_price")
-        unit_quantity_index = response.text.find("unit_quantity")
-        qty_avg_price = response.text[qty_avg_price_index-1:unit_quantity_index-2]
-
-        colon_index = qty_avg_price.find(":")
-        qty_avg_price = qty_avg_price[colon_index+2:-1]
-
-        print(qty_avg_price)
-
-        set_data[-1] = "$" + qty_avg_price
-
-        set_data = ",".join(set_data)
-        print(set_data+"\n\n\n")
-        price_list = price_list + set_data +"\n"
-
-    with open("Identified Lego Sets Prices.csv", "w") as list_file_prices:
-        list_file_prices.write(price_list)
 
 def verify_oauth():
     # form oauth token
@@ -67,6 +52,44 @@ def verify_oauth():
     auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
 
     return auth
+
+
+def bricklink_prices():
+    # gather second hand prices from bricklink API
+
+    sets_list = import_user_set_list()
+    price_list = ""
+
+    for set_item in sets_list:
+
+        set_id = set_item["ID"]
+        set_status = set_item["Status"]
+        if set_status == "New":
+            set_status = "N"
+        else:
+            set_status = "U"
+
+        set_url = "https://api.bricklink.com/api/store/v1/items/set/" + \
+            set_id + "-1/price?guide_type=sold&new_or_used=" + set_status
+
+        response = requests.get(set_url, auth=verify_oauth())
+        response_json = json.loads(response.text)
+
+        set_message = set_id + ": " + response_json["meta"]["message"]
+        print(set_message)
+
+        if response_json["meta"]["message"] == "OK":
+            qty_avg_price = response_json["data"]["qty_avg_price"]
+        else:
+            qty_avg_price = "0.00"
+
+        set_item["Current Price"] = "$" + qty_avg_price
+
+        set_data = ",".join(set_item.values())
+        price_list = price_list + set_data + "\n"
+
+    with open("sets_current_prices.csv", "w") as list_file_prices:
+        list_file_prices.write(price_list)
 
 
 def decompose_piece_list(pieces_list):
@@ -111,7 +134,7 @@ def sets_piece_lists():
     sets_list = import_user_set_list()
 
     for set_data in sets_list:
-        set_id = set_data[1]
+        set_id = set_data["ID"]
         set_url = "https://api.bricklink.com/api/store/v1/items/set/" + set_id + "-1/subsets"
         response = requests.get(set_url, auth=verify_oauth())
         json_load = json.loads(response.text)
@@ -144,16 +167,16 @@ def filter_sets_by_piece_list(pieces_list_user):
         pieces_list_by_set = json.loads(list_file.read())
 
     for set_data in sets_list:
-        set_validity = 0
-        set_id = set_data[1]
+        set_id = set_data["ID"]
         pieces_list_json = pieces_list_by_set[set_id]
 
+        found_piece_quantity = "0"
         found_pieces_list = []
+
         for piece_user in pieces_list_user:
             piece_user_id = piece_user[0]
             piece_user_color = piece_user[1]
             piece_user_quantity = piece_user[2]
-
             for piece_json in pieces_list_json:
                 piece_json_id = piece_json[0]
                 piece_json_color = piece_json[1]
@@ -169,33 +192,50 @@ def filter_sets_by_piece_list(pieces_list_user):
 
                 if piece_id_valid and piece_color_valid and piece_quantity_valid:
                     found_pieces_list.append(piece_user)
+                    if len(pieces_list_user) == 1:
+                        found_piece_quantity = piece_json_quantity
+                    continue
 
         if found_pieces_list == pieces_list_user:
-            print("Found in set: " + set_id)
+            if len(pieces_list_user) > 1:
+                print("Found in set: " + name_from_id(set_id))
+            else:
+                print(found_piece_quantity + " Found in set: " + name_from_id(set_id))
 
 
 def main_loop():
-
+    
+    print("")
     print(
         "Type a list of pieces as '[quantity]x[piece id]:[color]' for a list of sets that contain those pieces")
     print("    example inputs:'1x4522:11', '4522 4006:11 2x58247:11 2x3849'")
     print(
         "Type 'piece list' to create local cache that contains pieces list for each set")
+    print("Type 'set name [set id]' for the name of the provided set")
+    print("Type 'bricklink prices' to write the list of bricklink prices to 'sets_current_prices.csv'")
     print("Type 'exit' or 'quit' to exit")
 
     while True:
-
+        print("")
         user_request = input("Prompt: ").lower()
 
         if user_request == "exit" or user_request == "quit":
             break
 
-        if user_request == "piece list":
+        if "piece list" in user_request:
             sets_piece_lists()
+
+        if "set name" in user_request:
+            user_id = user_request.split(" ")[-1]
+            print(name_from_id(user_id))
+
+        if "bricklink prices" in user_request:
+            bricklink_prices()
 
         else:
             piece_list = decompose_piece_list(user_request)
             filter_sets_by_piece_list(piece_list)
 
 
-main_loop()
+if __name__ == "__main__":
+    main_loop()
