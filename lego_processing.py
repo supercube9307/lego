@@ -6,19 +6,19 @@ from requests_oauthlib import OAuth1
 
 def import_user_set_list():
     # import user list of sets from .csv and extract set data
-    with open("Identified Lego Sets - List.csv", "r") as list_file:
+    with open("Identified Lego Sets - python_export.csv", "r") as list_file:
         list_text = list_file.read()
 
     # convert .csv to single list by set
     sets_list = list_text.split("\n")
     # remove headers
     set_headers = sets_list.pop(0).split(",")
-    # remove ghost entry at bottom
-    sets_list.pop()
+    #remove ghost entry
+    if sets_list[-1] == "":
+        sets_list.pop()
 
     # convert single nested list to list of dictionaries
     new_sets_list = []
-    sets_list_index = 0
     for set_data in sets_list:
         new_set_data = {}
         set_item_list = set_data.split(",")
@@ -27,7 +27,6 @@ def import_user_set_list():
             new_set_data[set_headers[set_item_index]] = set_item
             set_item_index += 1
         new_sets_list.append(new_set_data)
-        sets_list_index += 1
     return (new_sets_list)
 
 
@@ -55,11 +54,11 @@ def verify_oauth():
 
 
 def bricklink_prices():
-    # gather second hand prices from bricklink API
+    # gather current prices from bricklink API
+
+    price_list = "Name,ID,Status,Retail Price,Current Price\n"
 
     sets_list = import_user_set_list()
-    price_list = ""
-
     for set_item in sets_list:
 
         set_id = set_item["ID"]
@@ -75,7 +74,7 @@ def bricklink_prices():
         response = requests.get(set_url, auth=verify_oauth())
         response_json = json.loads(response.text)
 
-        set_message = set_id + ": " + response_json["meta"]["message"]
+        set_message = name_from_id(set_id) + ": " + response_json["meta"]["message"]
         print(set_message)
 
         if response_json["meta"]["message"] == "OK":
@@ -88,7 +87,7 @@ def bricklink_prices():
         set_data = ",".join(set_item.values())
         price_list = price_list + set_data + "\n"
 
-    with open("sets_current_prices.csv", "w") as list_file_prices:
+    with open("Identified Lego Sets - python_export.csv", "w") as list_file_prices:
         list_file_prices.write(price_list)
 
 
@@ -133,17 +132,17 @@ def sets_piece_lists():
 
     sets_list = import_user_set_list()
 
+    pieces_list_by_set = {}
     for set_data in sets_list:
         set_id = set_data["ID"]
         set_url = "https://api.bricklink.com/api/store/v1/items/set/" + set_id + "-1/subsets"
         response = requests.get(set_url, auth=verify_oauth())
         json_load = json.loads(response.text)
 
-        set_message = set_id + ": " + json_load["meta"]["message"]
+        set_message = name_from_id(set_id) + ": " + json_load["meta"]["message"]
         print(set_message)
 
         pieces_list = []
-        pieces_list_by_set = {}
 
         for piece in json_load["data"]:
             piece_id = piece["entries"][0]["item"]["no"]
@@ -153,8 +152,8 @@ def sets_piece_lists():
             pieces_list.append([piece_id, piece_color, piece_quantity])
         pieces_list_by_set[set_id] = pieces_list
 
-        with open("pieces_list_by_set.json", "w") as list_file:
-            list_file.write(json.dumps(pieces_list_by_set, indent=4))
+    with open("pieces_list_by_set.json", "w") as list_file:
+        list_file.write(json.dumps(pieces_list_by_set, indent=4))
 
 
 def filter_sets_by_piece_list(pieces_list_user):
@@ -170,6 +169,7 @@ def filter_sets_by_piece_list(pieces_list_user):
         set_id = set_data["ID"]
         pieces_list_json = pieces_list_by_set[set_id]
 
+        #declare found piece quantity here so it can be used for printing results
         found_piece_quantity = "0"
         found_pieces_list = []
 
@@ -222,14 +222,14 @@ def main_loop():
         if user_request == "exit" or user_request == "quit":
             break
 
-        if "piece list" in user_request:
+        elif "piece list" in user_request:
             sets_piece_lists()
 
-        if "set name" in user_request:
+        elif "set name" in user_request:
             user_id = user_request.split(" ")[-1]
             print(name_from_id(user_id))
 
-        if "bricklink prices" in user_request:
+        elif "bricklink prices" in user_request:
             bricklink_prices()
 
         else:
