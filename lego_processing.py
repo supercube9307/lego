@@ -1,4 +1,3 @@
-import time
 import json
 import requests
 from requests_oauthlib import OAuth1
