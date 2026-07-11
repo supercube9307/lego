@@ -1,7 +1,7 @@
 import json
 import requests
+import webbrowser
 from sets_utils import *
-
 
 def import_user_set_list() -> list:
     # import user list of sets from .csv and extract set data
@@ -26,7 +26,6 @@ def import_user_set_list() -> list:
         
     return (new_sets_list)
     
-
 def write_set_json(set_instance):
 
     # construct json files where piece lists per set are stored locally
@@ -53,7 +52,6 @@ def write_set_json(set_instance):
 
     with open(f"local_data/sets/set_{set_instance.id}.json", "w") as local_file:
         local_file.write(set_instance.bundle_json(sort_keys=True, indent=4))
-
 
 def update_prices(sets_list):
     # gather current prices from bricklink and brickset API
@@ -103,7 +101,6 @@ def update_prices(sets_list):
     with open("local_data/Identified Lego Sets - python_export.csv", "w") as list_file:
 
         list_file.write(output_text)
-
 
 def decompose_piece_list(pieces_list):
 
@@ -187,7 +184,6 @@ def filter_sets_by_piece_list(pieces_list_user, sets_list):
             else:
                 print(str(found_piece_quantity) + " Found in set: " + set_data.id)
 
-
 def main_loop():
 
     welcome_message = """
@@ -196,6 +192,8 @@ Type a list of pieces as '[quantity]x[piece id]:[color]' for a list of sets that
 Type 'piece list' to create local cache that contains pieces list for each set
 Type 'set name [set id]' for the name of the provided set
 Type 'update prices' to write the list of current and retail prices to 'sets_current_prices.csv'
+Type 'color guide' to view the bricklink color guide
+Type 'instructions [Set ID]' to view a set's instructions
 Type 'help' to see this message again
 Type 'exit' or 'quit' to exit"""
 
@@ -225,10 +223,16 @@ Type 'exit' or 'quit' to exit"""
         elif "update prices" in user_request:
             update_prices(sets_list)
 
+        elif user_request == "color guide":
+            webbrowser.open("https://v2.bricklink.com/en-us/catalog/color-guide")
+
+        elif "instructions" in user_request:
+            set_id = user_request.split(" ")[1]
+            webbrowser.open(f"https://www.lego.com/en-us/service/building-instructions/" + set_id)
+
         else:
             piece_list = decompose_piece_list(user_request)
             filter_sets_by_piece_list(piece_list, sets_list)
-
 
 if __name__ == "__main__":
     main_loop()

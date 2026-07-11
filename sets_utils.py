@@ -22,9 +22,6 @@ class lego_set:
         json_str = {"name":self.name, "id": self.id, "status": self.status, "piece_list":piece_list_as_json}
 
         return(json.dumps(json_str, **kwargs))
-    
-    def view_instructions(self):
-        webbrowser.open(f"https://www.lego.com/en-us/service/building-instructions/{self.id}")
 
     def fetch_price_current(self, auth) -> str:
 
