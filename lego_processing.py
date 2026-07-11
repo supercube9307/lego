@@ -1,6 +1,7 @@
 import json
 import requests
 import webbrowser
+import os
 from sets_utils import *
 
 def import_user_set_list() -> list:
@@ -22,6 +23,8 @@ def import_user_set_list() -> list:
         set_item_list = set_data.split(",")
 
         set_instance = lego_set(piece_list = [], name = set_item_list[0], id = set_item_list[1], status = set_item_list[2])
+        set_instance.retail_price = set_item_list[3]
+        set_instance.current_price = set_item_list[4]
         new_sets_list.append(set_instance)
         
     return (new_sets_list)
@@ -56,39 +59,16 @@ def write_set_json(set_instance):
 def update_prices(sets_list):
     # gather current prices from bricklink and brickset API
 
-
-    with open("local_data/Identified Lego Sets - python_export.csv", "r") as list_file:
-        list_text = list_file.read()
-
-    # convert .csv to single list by set
-    sets_list_csv = list_text.split("\n")
-    # remove headers
-    set_headers = sets_list_csv.pop(0).split(",")
-    #remove ghost entry
-    if sets_list_csv[-1] == "":
-        sets_list_csv.pop()
-
-    set_list_as_dict = {}
-    for set_entry in sets_list_csv:
-        set_items = set_entry.split(",")
-        set_dict = {header: item for header, item in zip(set_headers,set_items)}
-
-        set_list_as_dict[set_dict["ID"]] = set_dict
-
     output_text = "Name,ID,Status,Retail Price,Current Price\n"
     brickset_auth = verify_auth_brickset()
     for set_instance in sets_list:
-
-        set_id = set_instance.id
-        set_dict = set_list_as_dict[str(set_id)]
 
         try:
             set_instance.current_price = set_instance.fetch_price_current(verify_auth_bricklink())
         except:
             pass
 
-        set_instance.retail_price = set_dict["Retail Price"]
-        if set_dict["Retail Price"] == '':
+        if set_instance.retail_price == '':
             try:
                 set_instance.retail_price = set_instance.fetch_price_retail(brickset_auth)
             except:
@@ -210,6 +190,8 @@ Type 'exit' or 'quit' to exit"""
 
         elif "piece list" in user_request:
             for set_instance in sets_list:
+                if os.path.exists(f"local_data/sets/set_{set_instance.id}.json"):
+                    continue
                 write_set_json(set_instance)
             continue
 

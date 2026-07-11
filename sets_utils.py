@@ -12,6 +12,8 @@ class lego_set:
         self.id = id
         self.name = name
         self.status = status
+        self.current_price = ""
+        self.retail_price = ""
 
     def bundle_json(self, **kwargs) -> str:
 
