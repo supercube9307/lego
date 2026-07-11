@@ -8,11 +8,14 @@ e.g: A-wing Starfighter - UCS,75275,New,$199.99 ,$198.9984
 
 
 
-credentials file for bricklink contains, each item on a new line with no formatting: 
+credentials_file_bricklink contains, each item on a new line with no formatting: 
 consumer\_key
 consumer\_secret
 token\_value
 token\_secret
+
+credentials_file_brickset contains, each item on a new line with no formatting: 
+apiKey
 
 
 
