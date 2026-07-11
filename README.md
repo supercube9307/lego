@@ -20,5 +20,5 @@ apiKey
 
 
 
-pieces\_list\_by\_set stores a full list of every piece in each set locally, so may be quite large depending on the size of the collection (this file is around 2MB on my machine)
+local_data/sets stores a full list of every piece in each set locally, so may be quite large depending on the size of the collection (this folder is around 3MB on my machine)
 

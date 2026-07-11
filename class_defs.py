@@ -1,8 +1,5 @@
-import webbrowser
 import json
 import requests
-from requests_oauthlib import OAuth1
-from getpass import getpass
 from time import sleep
 
 class lego_set:
@@ -25,7 +22,7 @@ class lego_set:
 
         return(json.dumps(json_str, **kwargs))
 
-    def fetch_price_current(self, auth) -> str:
+    def fetch_price_current(self, auth):
 
         if self.status.lower() == "new":
             status_letter = "N"
@@ -40,14 +37,15 @@ class lego_set:
         set_message = "Bricklink, " + self.name + ": " + response_json["meta"]["message"]
         print(set_message)
 
-        if response_json["meta"]["message"] == "OK":
-            qty_avg_price = response_json["data"]["qty_avg_price"]
-        else:
-            qty_avg_price = "0.00"
+        try:
+            self.current_price = "$" + response_json["data"]["qty_avg_price"]
+        except:
+            self.current_price = "$0.00"
 
-        return("$" + qty_avg_price)
+    def fetch_price_retail(self, auth):
 
-    def fetch_price_retail(self, auth) -> str:
+        if self.retail_price != "":
+            return
 
         sleep(0.1)
 
@@ -65,14 +63,10 @@ class lego_set:
         set_message = "Brickset, " + self.name + ": " + response_json["status"]
         print(set_message)
 
-        if response_json["status"] == "success":
-            retail_price = str(response_json["sets"][0]["LEGOCom"]["US"]['retailPrice'])
-        else:
-            retail_price = "0.00"
-        
-        return("$" + retail_price)
-
-
+        try:
+            self.retail_price = self.fetch_price_retail(auth)
+        except:
+            self.retail_price = "0.00"
 
 class piece:
     def __init__(self, count: int, color: str, type: str):
@@ -83,43 +77,13 @@ class piece:
     def bundle_json(self) -> str:
         
         return json.dumps({"type": self.type, "color": self.color, "count": self.count})
-
-
-
-def verify_auth_bricklink():
-    # form oauth token
-
-    with open("local_data/credentials_file_bricklink.txt") as credentials_file:
-        key_list = credentials_file.read().split("\n")
-        [consumer_key, consumer_secret, token_value, token_secret] = [key_list[x] for x in range(4)]
-    auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
-
-    return auth
-
-def get_brickset_apiKey() -> str:
-
-    with open("local_data/credentials_file_brickset.txt") as credentials_file:
-        apiKey = credentials_file.read().split("\n")[0]
-
-    return apiKey
-
-def verify_auth_brickset():
     
-    url = 'https://brickset.com/api/v3.asmx/'
-
-    apiKey = get_brickset_apiKey()
-
-    auth_verified = False
-    while auth_verified == False:
-        username = input("Please input Brickset Username: ")
-        password = getpass("Please input Brickset Password: ")
-        response = requests.post(url+"/login", {"apiKey": apiKey, "username": username, "password": password})
+    def check_valid(self, other):
+        piece_id_valid = self.type == other.type
+        piece_quantity_valid = other.count <= self.count
+        if other.color != "":
+            piece_color_valid = self.color == other.color
+        else:
+            piece_color_valid = True
         
-        try:
-            hash = json.loads(response.text)["hash"]
-        except KeyError: 
-            print("Invalid Login. Try Again")
-            continue
-        auth_verified = True
-
-    return({"apiKey":apiKey, "userHash":hash})
+        return(piece_id_valid and piece_color_valid and piece_quantity_valid)

@@ -2,7 +2,9 @@ import json
 import requests
 import webbrowser
 import os
-from sets_utils import *
+from requests_oauthlib import OAuth1
+from getpass import getpass
+from class_defs import *
 
 def import_user_set_list() -> list:
     # import user list of sets from .csv and extract set data
@@ -64,16 +66,8 @@ def update_prices(sets_list):
     brickset_auth = verify_auth_brickset()
     for set_instance in sets_list:
 
-        try:
-            set_instance.current_price = set_instance.fetch_price_current(verify_auth_bricklink())
-        except:
-            pass
-
-        if set_instance.retail_price == '':
-            try:
-                set_instance.retail_price = set_instance.fetch_price_retail(brickset_auth)
-            except:
-                pass            
+        set_instance.fetch_price_current(verify_auth_bricklink())
+        set_instance.fetch_price_retail(brickset_auth)
 
         line_text = f"{set_instance.name},{set_instance.id},{set_instance.status},{set_instance.retail_price},{set_instance.current_price}\n"
         
@@ -91,44 +85,37 @@ def decompose_piece_list(pieces_list):
     pieces_list = pieces_list.split(" ")
 
     return_pieces_list = []
-    for piece_name in pieces_list:
-
-        # Example piece queries:
-        # 4522 4006:11 2x58247:11 2x3849
-        piece_count = 1
-        piece_color = ""
-
-        if "x" in piece_name:
-            piece_name = str(piece_name).split("x")
-            piece_count = int(piece_name.pop(0))
-            piece_name = piece_name[0]
-
-        if ":" in piece_name:
-            piece_name = str(piece_name).split(":")
-            piece_color = piece_name.pop(-1)
-            piece_name = piece_name[0]
-
-        piece_id = piece_name
-
-        return_pieces_list.append(piece(count=piece_count, color=piece_color, type=piece_id))
+    for piece_entry in pieces_list:
+        return_pieces_list.append(parse_piece_input(piece_entry))
 
     return(return_pieces_list)
 
-def name_from_id(set_id) -> str:
+def parse_piece_input(piece_entry):
+    # Example piece queries:
+    # 4522 4006:11 2x58247:11 2x3849
+    piece_count = 1
+    piece_color = ""
 
-    with open(f"sets/set_{set_id}.json") as json_file:
+    if "x" in piece_entry:
+        piece_entry = str(piece_entry).split("x")
+        piece_count = int(piece_entry.pop(0))
+        piece_entry = piece_entry[0]
 
-        json_content = json.loads(json_file.read())
+    if ":" in piece_entry:
+        piece_entry = str(piece_entry).split(":")
+        piece_color = piece_entry.pop(-1)
+        piece_entry = piece_entry[0]
 
-        return(json_content["name"])
+        piece_id = piece_entry
+
+    return(piece(count=piece_count, color=piece_color, type=piece_id))
 
 def filter_sets_by_piece_list(pieces_list_user, sets_list):
 
     # compare user supplied list of pieces to sets list and report matches
     for set_data in sets_list:
 
-        set_id = set_data.id
-        with open(f"local_data/sets/set_{set_id}.json", "r") as set_file:
+        with open(f"local_data/sets/set_{set_data.id}.json", "r") as set_file:
             set_json = json.loads(set_file.read())
         pieces_list_json = set_json["piece_list"]
 
@@ -145,30 +132,51 @@ def compare_piece_lists(pieces_list_user, pieces_list_json):
     found_piece_quantity = "0"
     found_pieces_list = []
 
-    for piece_user in pieces_list_user:
-        piece_user_id = piece_user.type
-        piece_user_color = piece_user.color
-        piece_user_quantity = piece_user.count
+    for piece_instance_user in pieces_list_user:
+
         for piece_json in pieces_list_json:
-            piece_json_id = piece_json["type"]
-            piece_json_color = piece_json["color"]
-            piece_json_quantity = piece_json["count"]
 
-            # check validity of user piece vs. json list
-            piece_id_valid = piece_json_id == piece_user_id
-            piece_quantity_valid = piece_user_quantity <= piece_json_quantity
-            if piece_user_color != "":
-                piece_color_valid = piece_user_color == piece_json_color
-            else:
-                piece_color_valid = True
+            piece_instance_json = piece(count = piece_json["count"], color = piece_json["color"], type=piece_json["type"])            
 
-            if piece_id_valid and piece_color_valid and piece_quantity_valid:
-                found_pieces_list.append(piece_user)
+            if piece_instance_json.check_valid(piece_instance_user):
+                found_pieces_list.append(piece_instance_user)
                 if len(pieces_list_user) == 1:
-                    found_piece_quantity = piece_json_quantity
+                    found_piece_quantity = str(piece_instance_json.count)
                 continue
 
     return(found_pieces_list, found_piece_quantity)
+
+def verify_auth_bricklink():
+    # form oauth token
+
+    with open("local_data/credentials_file_bricklink.txt") as credentials_file:
+        key_list = credentials_file.read().split("\n")
+        [consumer_key, consumer_secret, token_value, token_secret] = [key_list[x] for x in range(4)]
+    auth = OAuth1(consumer_key, consumer_secret, token_value, token_secret)
+
+    return auth
+
+def verify_auth_brickset():
+    
+    url = 'https://brickset.com/api/v3.asmx/'
+
+    with open("local_data/credentials_file_brickset.txt") as credentials_file:
+        apiKey = credentials_file.read().split("\n")[0]
+
+    auth_verified = False
+    while auth_verified == False:
+        username = input("Please input Brickset Username: ")
+        password = getpass("Please input Brickset Password: ")
+        response = requests.post(url+"/login", {"apiKey": apiKey, "username": username, "password": password})
+        
+        try:
+            hash = json.loads(response.text)["hash"]
+        except KeyError: 
+            print("Invalid Login. Try Again")
+            continue
+        auth_verified = True
+
+    return({"apiKey":apiKey, "userHash":hash})
 
 def main_loop():
 
@@ -188,8 +196,7 @@ Type 'exit' or 'quit' to exit"""
     sets_list = import_user_set_list()
 
     while True:
-        print("")
-        user_request = input("Prompt: ").lower()
+        user_request = input("\nPrompt: ").lower()
 
         if user_request == "exit" or user_request == "quit":
             break
@@ -205,8 +212,13 @@ Type 'exit' or 'quit' to exit"""
             print(welcome_message)
 
         elif "set name" in user_request:
-            user_id = user_request.split(" ")[-1]
-            print(name_from_id(user_id))
+            set_id = user_request.split(" ")[-1]
+
+            with open(f"sets/set_{set_id}.json") as json_file:
+                json_content = json.loads(json_file.read())
+                set_name = json_content["name"]
+
+            print(set_name)
 
         elif "update prices" in user_request:
             update_prices(sets_list)
