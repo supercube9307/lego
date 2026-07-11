@@ -53,7 +53,8 @@ def write_set_json(set_instance):
     except KeyError:
         pass
 
-    with open(f"local_data/sets/set_{set_instance.id}.json", "w") as local_file:
+    file_path = f"local_data/sets/set_{set_instance.id}.json"
+    with open(file_path, "w") as local_file:
         local_file.write(set_instance.bundle_json(sort_keys=True, indent=4))
 
 def update_prices(sets_list):
@@ -131,38 +132,43 @@ def filter_sets_by_piece_list(pieces_list_user, sets_list):
             set_json = json.loads(set_file.read())
         pieces_list_json = set_json["piece_list"]
 
-        #declare found piece quantity here so it can be used for printing results
-        found_piece_quantity = "0"
-        found_pieces_list = []
-
-        for piece_user in pieces_list_user:
-            piece_user_id = piece_user.type
-            piece_user_color = piece_user.color
-            piece_user_quantity = piece_user.count
-            for piece_json in pieces_list_json:
-                piece_json_id = piece_json["type"]
-                piece_json_color = piece_json["color"]
-                piece_json_quantity = piece_json["count"]
-
-                # check validity of user piece vs. json list
-                piece_id_valid = piece_json_id == piece_user_id
-                piece_quantity_valid = piece_user_quantity <= piece_json_quantity
-                if piece_user_color != "":
-                    piece_color_valid = piece_user_color == piece_json_color
-                else:
-                    piece_color_valid = True
-
-                if piece_id_valid and piece_color_valid and piece_quantity_valid:
-                    found_pieces_list.append(piece_user)
-                    if len(pieces_list_user) == 1:
-                        found_piece_quantity = piece_json_quantity
-                    continue
+        [found_pieces_list, found_piece_quantity] = compare_piece_lists(pieces_list_user, pieces_list_json)
 
         if found_pieces_list == pieces_list_user:
             if len(pieces_list_user) > 1:
                 print("Found in set: " + set_data.id)
             else:
                 print(str(found_piece_quantity) + " Found in set: " + set_data.id)
+    
+def compare_piece_lists(pieces_list_user, pieces_list_json):
+    #declare found piece quantity here so it can be used for printing results
+    found_piece_quantity = "0"
+    found_pieces_list = []
+
+    for piece_user in pieces_list_user:
+        piece_user_id = piece_user.type
+        piece_user_color = piece_user.color
+        piece_user_quantity = piece_user.count
+        for piece_json in pieces_list_json:
+            piece_json_id = piece_json["type"]
+            piece_json_color = piece_json["color"]
+            piece_json_quantity = piece_json["count"]
+
+            # check validity of user piece vs. json list
+            piece_id_valid = piece_json_id == piece_user_id
+            piece_quantity_valid = piece_user_quantity <= piece_json_quantity
+            if piece_user_color != "":
+                piece_color_valid = piece_user_color == piece_json_color
+            else:
+                piece_color_valid = True
+
+            if piece_id_valid and piece_color_valid and piece_quantity_valid:
+                found_pieces_list.append(piece_user)
+                if len(pieces_list_user) == 1:
+                    found_piece_quantity = piece_json_quantity
+                continue
+
+    return(found_pieces_list, found_piece_quantity)
 
 def main_loop():
 
